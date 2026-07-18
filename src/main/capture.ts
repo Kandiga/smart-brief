@@ -81,6 +81,8 @@ export class CaptureController {
   private pending: { projectId: string } | 'permission' | null = null
   /** Screen access proven to work this session; never re-probed once true. */
   private accessVerified = false
+  /** Last colour the probe read back, for the support diagnostic. */
+  private lastProbePixel: { r: number; g: number; b: number } | null = null
 
   constructor(private deps: CaptureDeps) {}
 
@@ -182,32 +184,44 @@ export class CaptureController {
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
     })
     probeWindow.setAlwaysOnTop(true, 'screen-saver')
+    let probeFile: string | null = null
     try {
-      await probeWindow.loadURL(
-        'data:text/html,<body style="margin:0;background:%230df079;width:100%25;height:100%25"></body>'
+      // `data:` URLs are refused here, which left the window transparent and
+      // the probe reading the wallpaper straight through it. A real file always
+      // paints, so the colour is genuinely on screen to be captured.
+      const probePage = path.join(os.tmpdir(), `smart-brief-probe-${process.pid}.html`)
+      fs.writeFileSync(
+        probePage,
+        '<body style="margin:0;background:#0df079;width:100vw;height:100vh"></body>'
       )
+      probeFile = probePage
+      await probeWindow.loadFile(probePage).catch(() => undefined)
       probeWindow.showInactive()
-      await new Promise((resolve) => setTimeout(resolve, 220))
+      await new Promise((resolve) => setTimeout(resolve, 320))
       const png = await grabRegionAtNativeResolution({
         x: x + 8,
         y: y + 8,
         width: 8,
         height: 8
       })
-      if (!png) return false
+      // Anything inconclusive fails OPEN: blocking a capture that would have
+      // worked is worse than letting a rare empty one through.
+      if (!png) return true
       const bitmap = nativeImage.createFromBuffer(png).toBitmap() // BGRA
-      if (bitmap.length < 4) return false
+      if (bitmap.length < 4) return true
       const b = bitmap[0]
       const g = bitmap[1]
       const r = bitmap[2]
       const matches =
-        Math.abs(r - PROBE.r) < 40 && Math.abs(g - PROBE.g) < 40 && Math.abs(b - PROBE.b) < 40
+        Math.abs(r - PROBE.r) < 60 && Math.abs(g - PROBE.g) < 60 && Math.abs(b - PROBE.b) < 60
+      this.lastProbePixel = { r, g, b }
       this.accessVerified = matches
       return matches
     } catch {
-      return false
+      return true
     } finally {
       if (!probeWindow.isDestroyed()) probeWindow.destroy()
+      if (probeFile) fs.rm(probeFile, { force: true }, () => undefined)
     }
   }
 
@@ -226,6 +240,7 @@ export class CaptureController {
   async probeScreenAccess(): Promise<{
     reportedStatus: ScreenPermissionStatus
     canReallyCapture: boolean
+    probePixel: { r: number; g: number; b: number } | null
     totalWindows: number
     usableWindows: number
     sampleNames: string[]
@@ -243,12 +258,20 @@ export class CaptureController {
       return {
         reportedStatus,
         canReallyCapture,
+        probePixel: this.lastProbePixel,
         totalWindows: windows.length,
         usableWindows: others.length,
         sampleNames: others.slice(0, 5).map((w) => w.name)
       }
     } catch {
-      return { reportedStatus, canReallyCapture, totalWindows: 0, usableWindows: 0, sampleNames: [] }
+      return {
+        reportedStatus,
+        canReallyCapture,
+        probePixel: this.lastProbePixel,
+        totalWindows: 0,
+        usableWindows: 0,
+        sampleNames: []
+      }
     }
   }
 
@@ -267,22 +290,13 @@ export class CaptureController {
       // A new trigger during an open session restarts the capture cleanly.
       this.cancelSession()
 
-      if (!this.fake) {
-        const status = this.permissionStatus()
-        // getMediaAccessStatus is not trustworthy for screen capture — it keeps
-        // reporting "granted" when macOS is actually withholding every other
-        // app's pixels. Trust what we can really see instead, so the user is
-        // never handed a picture of their own empty wallpaper.
-        if (!(await this.screenAccessLooksReal())) {
-          // Asking for a screen source registers the app in the macOS Screen
-          // Recording list (and raises the system prompt the first time), so
-          // there is something for the user to switch on.
-          void desktopCapturer
-            .getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } })
-            .catch(() => undefined)
-          return this.reportPermissionProblem(status === 'granted' ? 'stale' : 'missing')
-        }
-      }
+      // Deliberately no permission pre-check here. Everything macOS offers is
+      // either a lie (`getMediaAccessStatus` reports "granted" regardless) or
+      // fragile, and a wrong answer blocks a capture that would have worked —
+      // far worse than letting one through. The genuine hard failure below
+      // (no screen frame at all) is the only thing worth refusing on, and
+      // asking for a screen source is also what registers the app in the macOS
+      // Screen Recording list and raises the system prompt the first time.
 
       const displays = screen.getAllDisplays()
       const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
