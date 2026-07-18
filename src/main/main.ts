@@ -1,6 +1,7 @@
 import { app, BrowserWindow, nativeTheme, session } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import { ProjectRepository } from './persistence/repository'
 import { registerIpc } from './ipc'
 import { buildMenu } from './menu'
@@ -183,6 +184,25 @@ app.whenReady().then(async () => {
   })
   applyShortcut()
   settings.applyLoginItem()
+
+  // Support diagnostic: report what the app can actually see and exit. Runs
+  // under the real bundle identity, so it reflects the true permission state
+  // (unlike `getMediaAccessStatus`, which lies about screen capture).
+  if (process.env.SMART_BRIEF_CAPTURE_DIAGNOSTIC) {
+    const probe = await capture.probeScreenAccess()
+    const report = `SMART_BRIEF_DIAGNOSTIC ${JSON.stringify(probe)}`
+    process.stdout.write(`${report}\n`)
+    // Also to a file: launched via `open` the app has no usable stdout, and
+    // that is the only way to observe it under its own identity (a binary run
+    // from a shell inherits the shell as TCC's "responsible process").
+    try {
+      fs.writeFileSync(path.join(os.tmpdir(), 'smart-brief-diagnostic.json'), report)
+    } catch {
+      /* diagnostic only */
+    }
+    app.exit(0)
+    return
+  }
 
   buildMenu(() => mainWindow, {
     saveUiZoom,

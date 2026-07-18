@@ -79,6 +79,8 @@ export class CaptureController {
   private starting = false
   /** Hand-off that survives main-window (re)creation races. */
   private pending: { projectId: string } | 'permission' | null = null
+  /** Screen access proven to work this session; never re-probed once true. */
+  private accessVerified = false
 
   constructor(private deps: CaptureDeps) {}
 
@@ -145,27 +147,102 @@ export class CaptureController {
   }
 
   /**
-   * `getMediaAccessStatus` is not trustworthy on its own: a stale TCC entry (for
-   * example after an unsigned rebuild changes the app's identity) keeps saying
-   * "granted" while macOS quietly strips every other app's content out of the
-   * capture — you get the wallpaper, the menu bar and the Dock, and nothing else.
+   * Definitively answer "can this app actually capture the screen?".
    *
-   * Reading other apps' window titles requires the same permission as capturing
-   * their pixels, so it is a reliable probe: if windows belonging to other apps
-   * exist but none of them will tell us their title, the permission is not
-   * actually working. With no other windows open we cannot tell, and say so.
+   * Nothing macOS *reports* can be trusted here: `getMediaAccessStatus` returns
+   * "granted" when the permission is not working, and without it the window
+   * list still shows desktop furniture (the Dock, desktop widgets), so counting
+   * windows misreads that as success too.
+   *
+   * So we ask the screen itself. A small window is shown in a known spot filled
+   * with an unmistakable colour, that exact spot is grabbed, and the pixel is
+   * compared. If the grab comes back as whatever was underneath — the wallpaper
+   * — then macOS is withholding real content and a capture would be worthless.
    */
-  private async screenAccessLooksReal(): Promise<boolean | 'unknown'> {
+  private async screenAccessLooksReal(): Promise<boolean> {
+    if (this.accessVerified) return true
+    const PROBE = { r: 13, g: 240, b: 121 } // no wallpaper looks like this
+    const size = 28
+    const display = screen.getPrimaryDisplay()
+    const x = display.bounds.x + 6
+    const y = display.bounds.y + Math.round(display.bounds.height / 2)
+
+    const probeWindow = new BrowserWindow({
+      x,
+      y,
+      width: size,
+      height: size,
+      frame: false,
+      show: false,
+      focusable: false,
+      skipTaskbar: true,
+      hasShadow: false,
+      resizable: false,
+      backgroundColor: '#0df079',
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+    })
+    probeWindow.setAlwaysOnTop(true, 'screen-saver')
+    try {
+      await probeWindow.loadURL(
+        'data:text/html,<body style="margin:0;background:%230df079;width:100%25;height:100%25"></body>'
+      )
+      probeWindow.showInactive()
+      await new Promise((resolve) => setTimeout(resolve, 220))
+      const png = await grabRegionAtNativeResolution({
+        x: x + 8,
+        y: y + 8,
+        width: 8,
+        height: 8
+      })
+      if (!png) return false
+      const bitmap = nativeImage.createFromBuffer(png).toBitmap() // BGRA
+      if (bitmap.length < 4) return false
+      const b = bitmap[0]
+      const g = bitmap[1]
+      const r = bitmap[2]
+      const matches =
+        Math.abs(r - PROBE.r) < 40 && Math.abs(g - PROBE.g) < 40 && Math.abs(b - PROBE.b) < 40
+      this.accessVerified = matches
+      return matches
+    } catch {
+      return false
+    } finally {
+      if (!probeWindow.isDestroyed()) probeWindow.destroy()
+    }
+  }
+
+  /**
+   * What the app can actually see. Without Screen Recording permission macOS
+   * hides other applications' windows from `desktopCapturer` entirely (and
+   * strips their pixels out of any capture), so "no window from any other app"
+   * is a decisive signal — a Mac in normal use always has some.
+   */
+  async probeScreenAccess(): Promise<{
+    reportedStatus: ScreenPermissionStatus
+    canReallyCapture: boolean
+    totalWindows: number
+    usableWindows: number
+    sampleNames: string[]
+  }> {
+    const reportedStatus = this.permissionStatus()
+    const canReallyCapture = await this.screenAccessLooksReal()
     try {
       const windows = await desktopCapturer.getSources({
         types: ['window'],
         thumbnailSize: { width: 1, height: 1 }
       })
-      const others = windows.filter((w) => !/^Smart Brief/i.test(w.name ?? ''))
-      if (others.length === 0) return 'unknown'
-      return others.some((w) => (w.name ?? '').trim().length > 0)
+      const others = windows.filter(
+        (w) => (w.name ?? '').trim().length > 0 && !/^Smart Brief/i.test(w.name ?? '')
+      )
+      return {
+        reportedStatus,
+        canReallyCapture,
+        totalWindows: windows.length,
+        usableWindows: others.length,
+        sampleNames: others.slice(0, 5).map((w) => w.name)
+      }
     } catch {
-      return false
+      return { reportedStatus, canReallyCapture, totalWindows: 0, usableWindows: 0, sampleNames: [] }
     }
   }
 
@@ -186,19 +263,18 @@ export class CaptureController {
 
       if (!this.fake) {
         const status = this.permissionStatus()
-        // Catch the "says granted but captures nothing" case before the user
-        // spends time annotating a picture of their own wallpaper.
-        if (status === 'granted' && (await this.screenAccessLooksReal()) === false) {
-          return this.reportPermissionProblem('stale')
-        }
-        if (status !== 'granted') {
-          // Attempting a capture registers the app in the macOS Screen Recording
-          // list (and triggers the system prompt on first use), so the user can
-          // actually find and enable it. The explainer UI is shown by the renderer.
+        // getMediaAccessStatus is not trustworthy for screen capture — it keeps
+        // reporting "granted" when macOS is actually withholding every other
+        // app's pixels. Trust what we can really see instead, so the user is
+        // never handed a picture of their own empty wallpaper.
+        if (!(await this.screenAccessLooksReal())) {
+          // Asking for a screen source registers the app in the macOS Screen
+          // Recording list (and raises the system prompt the first time), so
+          // there is something for the user to switch on.
           void desktopCapturer
             .getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } })
             .catch(() => undefined)
-          return this.reportPermissionProblem()
+          return this.reportPermissionProblem(status === 'granted' ? 'stale' : 'missing')
         }
       }
 
