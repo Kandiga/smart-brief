@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CaptureOverlayInit } from '@shared/contracts/ipc'
+import { captureDisplayRect } from '@shared/captureGeometry'
 import { useProjectStore } from '../stores/projectStore'
 import { useUiStore } from '../stores/uiStore'
 import { CanvasWorkspace } from '../components/CanvasWorkspace'
@@ -20,7 +21,9 @@ type Phase = 'loading' | 'select' | 'grabbing' | 'annotate'
 export function CaptureOverlayApp() {
   const [init, setInit] = useState<CaptureOverlayInit | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
-  const [selection, setSelection] = useState<SelectionRect | null>(null)
+  const [displayRect, setDisplayRect] = useState<(SelectionRect & { scaled: boolean }) | null>(
+    null
+  )
   const [error, setError] = useState<string | null>(null)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const projectIdRef = useRef<string | null>(null)
@@ -97,17 +100,18 @@ export function CaptureOverlayApp() {
       store.addPagesFromMedia([grabbed])
       const created = useProjectStore.getState()
       projectIdRef.current = created.project?.id ?? null
+      const target = captureDisplayRect(rect, init.overlayWidth, init.overlayHeight)
       const newPage = created.project?.pages[0]
       if (newPage) {
-        // Render the capture at exactly 1:1 over the spot it came from, so the
-        // annotation surface sits where the content actually is on screen.
-        created.setViewState(newPage.id, rect.width / grabbed.width, { x: 0, y: 0 })
+        // Map the captured pixels onto the area we are about to show it in, so
+        // the annotation surface lines up with the image exactly.
+        created.setViewState(newPage.id, target.width / grabbed.width, { x: 0, y: 0 })
       }
       const ui = useUiStore.getState()
       ui.setTool('region')
       ui.setSelection(null)
       ui.setComposerCollapsed(false)
-      setSelection(rect)
+      setDisplayRect(target)
       setPhase('annotate')
     },
     [init]
@@ -176,7 +180,7 @@ export function CaptureOverlayApp() {
 
   if (!init) return null
 
-  const annotating = phase === 'annotate' && selection !== null && page !== null
+  const annotating = phase === 'annotate' && displayRect !== null && page !== null
 
   return (
     <div className="capture-overlay" data-phase={phase} data-testid="capture-overlay">
@@ -191,33 +195,33 @@ export function CaptureOverlayApp() {
 
       {phase === 'grabbing' && <div className="capture-dim" />}
 
-      {annotating && selection && page && (
+      {annotating && displayRect && page && (
         <>
-          {/* Dim everything except the captured region, which stays bright and
-              exactly where it came from. */}
+          {/* Everything else goes dark; the capture reads as a lifted object. */}
           <div
             className="capture-spotlight"
             style={{
-              left: selection.x,
-              top: selection.y,
-              width: selection.width,
-              height: selection.height
+              left: displayRect.x,
+              top: displayRect.y,
+              width: displayRect.width,
+              height: displayRect.height
             }}
           />
           <div
             className="capture-canvas-host"
             data-testid="capture-canvas-host"
+            data-scaled={displayRect.scaled}
             style={{
-              left: selection.x,
-              top: selection.y,
-              width: selection.width,
-              height: selection.height
+              left: displayRect.x,
+              top: displayRect.y,
+              width: displayRect.width,
+              height: displayRect.height
             }}
           >
             <CanvasWorkspace page={page} pageIndex={0} floatingComposer />
           </div>
           <CaptureToolbar
-            selection={selection}
+            target={displayRect}
             overlayWidth={init.overlayWidth}
             overlayHeight={init.overlayHeight}
             onDone={() => void finish()}
@@ -306,13 +310,13 @@ function OverallComposer({ pageId }: { pageId: string }) {
  * otherwise, so it never covers the area being annotated.
  */
 function CaptureToolbar({
-  selection,
+  target,
   overlayWidth,
   overlayHeight,
   onDone,
   onCancel
 }: {
-  selection: SelectionRect
+  target: SelectionRect
   overlayWidth: number
   overlayHeight: number
   onDone: () => void
@@ -320,15 +324,36 @@ function CaptureToolbar({
 }) {
   const setOverallOpen = useUiStore((s) => s.setOverallComposerOpen)
   const overallOpen = useUiStore((s) => s.overallComposerOpen)
-  const TOOLBAR_HEIGHT = 52
-  const GAP = 10
-  const below = selection.y + selection.height + GAP
-  const fitsBelow = below + TOOLBAR_HEIGHT < overlayHeight - 8
-  const top = fitsBelow ? below : Math.max(8, selection.y - GAP - TOOLBAR_HEIGHT)
-  const left = Math.min(Math.max(8, selection.x), Math.max(8, overlayWidth - 620))
+  const ref = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ width: 0, height: 52 })
+
+  // Measure rather than guess: the toolbar's width depends on the tool set, so
+  // a hard-coded estimate would let it run off the edge of the screen.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setSize({ width: rect.width, height: rect.height })
+  }, [])
+
+  const GAP = 12
+  const below = target.y + target.height + GAP
+  const fitsBelow = below + size.height <= overlayHeight - 8
+  const top = fitsBelow
+    ? below
+    : Math.max(8, Math.min(target.y - GAP - size.height, overlayHeight - size.height - 8))
+  const centred = target.x + target.width / 2 - size.width / 2
+  const left = Math.round(
+    Math.min(Math.max(8, centred), Math.max(8, overlayWidth - size.width - 8))
+  )
 
   return (
-    <div className="capture-toolbar" style={{ left, top }} data-testid="capture-toolbar">
+    <div
+      ref={ref}
+      className="capture-toolbar"
+      style={{ left, top, visibility: size.width === 0 ? 'hidden' : 'visible' }}
+      data-testid="capture-toolbar"
+    >
       <VisualToolbar orientation="horizontal" />
       <div className="capture-toolbar-actions">
         <button

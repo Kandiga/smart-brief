@@ -9,9 +9,11 @@ leaving the screen you are looking at**:
   selection overlay: frozen frame, gentle dim, crosshair, live pixel dimensions, Esc to
   cancel. Captures happen on the display under the cursor at its native (Retina) resolution;
   the selection is constrained to that display.
-- After selecting, **you stay exactly where you are**. The captured area remains bright and
-  pixel-aligned in its original spot, your screen stays visible (dimmed) around it, and a
-  floating toolbar appears beside it. The overlay hosts the real editor — same canvas,
+- After selecting, **you stay exactly where you are**. The capture is presented with a
+  frame and a shadow over a dimmed backdrop so it clearly reads as an image you are marking
+  up; a selection that fits stays exactly where it was taken at 1:1, and a larger one (a
+  whole screen) is scaled down and centred so there is always a margin and room for the
+  floating toolbar. The overlay hosts the real editor — same canvas,
   tools, colours, undo/redo and autosave — plus a **floating instruction composer** next to
   each numbered region (auto-flips so it never covers the region, draggable, ⌘↩ done / Esc
   collapse, prev/next navigation, hover previews). "Note" adds one overall message.

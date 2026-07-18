@@ -190,7 +190,7 @@ background `#f4f2ee`, custom icon, Retina-correct rendering.
 
 ## 10. Testing & tooling
 
-- **70 unit tests** (Vitest): capture geometry (Retina/clamping/negative origins), AI
+- **75 unit tests** (Vitest): capture geometry (Retina/clamping/negative origins), AI
   Brief contract (manifest/brief.md/README, metadata filtering, naming), settings
   validation, plus the original suites: region numbering, geometry inverses/zoom-at-cursor,
   schema migration & normalization, repository (stale-revision rejection, tombstones
@@ -243,11 +243,13 @@ from array order on every mutation and undo/redo.
   and applying no scale factor, since the tool takes points and emits pixels. Unit-tested
   for negative origins, negative-size drags and rounding.
 - **Annotate in place — the app window never comes forward.** After the drag the same
-  overlay becomes the editing surface: the captured region stays bright and pixel-aligned
-  exactly where it came from (rendered 1:1 by presetting the page viewport to
-  `selectionDIP / imagePixels`), the rest of the frozen screen stays visible but dimmed,
-  and a floating toolbar appears beside the selection (flipping above it when there is no
-  room below). The overlay hosts the **real editor** — the same `projectStore`,
+  overlay becomes the editing surface: the capture is shown with a hairline frame and a
+  shadow over a strongly dimmed backdrop, so it always reads as a captured image you are
+  marking up rather than as your live desktop. A selection that fits comfortably stays
+  exactly where it was taken, at 1:1; a selection too large for that (a whole screen, most
+  obviously) is scaled down and centred so there is always a visible margin and room for
+  the toolbar (`captureDisplayRect`, unit-tested). The floating toolbar measures itself and
+  centres under the capture, flipping above it when there is no room below. The overlay hosts the **real editor** — the same `projectStore`,
   `CanvasWorkspace`, tools, palette, undo/redo and autosave — so nothing about regions or
   drawing is reimplemented.
 - **Floating per-region instruction composer**: opens focused on region creation;

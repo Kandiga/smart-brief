@@ -73,10 +73,14 @@ body,
   font-size: 13px;
 }
 
-/* Annotate phase: everything dimmed except the captured region. */
+/* Annotate phase: the backdrop goes dark so the capture reads as a distinct
+   object you are marking up — not as the live desktop with a toolbar on it. */
 .capture-spotlight {
   position: fixed;
-  box-shadow: 0 0 0 100000px rgba(10, 10, 12, 0.5);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 100000px rgba(8, 8, 10, 0.74),
+    0 18px 60px rgba(0, 0, 0, 0.55);
   pointer-events: none;
   z-index: 1;
 }
@@ -85,6 +89,12 @@ body,
   position: fixed;
   z-index: 2;
   overflow: visible;
+  border-radius: 8px;
+  /* A hairline frame makes the edge of the capture unmistakable, even when the
+     shot is of the very screen it is floating over. */
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 0 0 2px rgba(0, 0, 0, 0.35);
 }
 
 /* The canvas fills its host exactly; the capture renders 1:1 in place. */
@@ -92,6 +102,8 @@ body,
   width: 100%;
   height: 100%;
   background: transparent;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .capture-canvas-host .zoom-readout {

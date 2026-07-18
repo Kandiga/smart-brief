@@ -3,7 +3,7 @@
 ## Commands
 
 ```bash
-npm run test:unit    # Vitest (70 tests)
+npm run test:unit    # Vitest (75 tests)
 npm run test:e2e     # Playwright driving the real built Electron app (11 tests)
 npm run lint         # ESLint (typescript-eslint recommended, zero warnings)
 npm run typecheck    # tsc --noEmit, strict
@@ -32,6 +32,9 @@ Playwright's second-window handle, without needing Screen Recording permission.
   serialized concurrent writes.
 - `exportModel.test.ts` — export model contains only visual content (asserts absence of
   "brief direction", "goal", "target model", "must preserve", "must avoid"), HTML escaping.
+- `captureLayout.test.ts` — how the capture is presented while annotating: a comfortable
+  selection stays 1:1 in place, a full-screen selection is scaled down and centred with a
+  visible margin and room for the toolbar, aspect ratio preserved, degenerate inputs safe.
 - `captureGeometry.test.ts` — overlay selection → global `screencapture -R` region
   (display origins including displays left of / above the primary, negative-size drags,
   rounding, and the invariant that no scale factor is pre-applied), region crop bounds with

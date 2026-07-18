@@ -57,8 +57,9 @@ tests.
 Press **⌥B** from anywhere on your Mac (the app can sit quietly in the menu bar):
 
 1. The screen freezes under a gentle dim. Drag a box around the area you care about.
-2. **You stay right where you are.** The captured area stays bright and exactly in place,
-   your screen is still visible around it, and a small toolbar floats next to it.
+2. **You stay right where you are.** The capture appears framed against a dimmed backdrop —
+   exactly where you took it if it fits, neatly centred if it was a whole screen — with a
+   small toolbar floating under it.
 3. Draw a numbered **Region**; a composer opens next to it, already focused. Type the
    instruction. `⌘↩` when you're done with it, `Esc` to tuck it away — nothing is ever lost,
    and clicking a region reopens its text. Arrows, boxes, circles, freehand, eight colours,
@@ -130,7 +131,7 @@ Three packaging configs are included: unsigned (default), free self-signed
 (`npm run package:signed`, only needed to distribute to other people).
 
 `ARCHITECTURE.md` covers the design, `FEATURES.md` is a full inventory of behaviour, and
-`TESTING.md` describes the test strategy — 68 unit tests and 11 end-to-end tests that drive
+`TESTING.md` describes the test strategy — 75 unit tests and 11 end-to-end tests that drive
 the real app, including regressions for the persistence and export guarantees above.
 
 ## Keyboard

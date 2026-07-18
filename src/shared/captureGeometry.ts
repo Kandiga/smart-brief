@@ -59,6 +59,44 @@ export function normalizedBounds(
   }
 }
 
+/** Breathing room kept around the capture, and the strip the toolbar needs. */
+export const CAPTURE_EDGE_MARGIN = 30
+export const CAPTURE_TOOLBAR_SPACE = 80
+
+/**
+ * Where the captured image is shown while it is being annotated.
+ *
+ * A selection that comfortably fits stays exactly where it was taken, at 1:1 —
+ * you mark up the thing right where you were looking at it. A selection too
+ * large for that (a whole screen, most obviously) is scaled down and centred
+ * instead, so it always reads as a captured image on a darkened backdrop
+ * rather than as your live desktop with a toolbar stuck on top.
+ */
+export function captureDisplayRect(
+  selection: PixelRect,
+  overlayWidth: number,
+  overlayHeight: number
+): PixelRect & { scaled: boolean } {
+  const availableWidth = Math.max(120, overlayWidth - CAPTURE_EDGE_MARGIN * 2)
+  const availableHeight = Math.max(
+    120,
+    overlayHeight - CAPTURE_EDGE_MARGIN * 2 - CAPTURE_TOOLBAR_SPACE
+  )
+  if (selection.width <= availableWidth && selection.height <= availableHeight) {
+    return { ...selection, scaled: false }
+  }
+  const scale = Math.min(availableWidth / selection.width, availableHeight / selection.height)
+  const width = Math.max(1, Math.round(selection.width * scale))
+  const height = Math.max(1, Math.round(selection.height * scale))
+  return {
+    x: Math.round((overlayWidth - width) / 2),
+    y: Math.round((overlayHeight - CAPTURE_TOOLBAR_SPACE - height) / 2),
+    width,
+    height,
+    scaled: true
+  }
+}
+
 /**
  * Convert an overlay selection (window-local DIP on one display) to the global
  * point rectangle that macOS `screencapture -R x,y,w,h` expects: the display's
