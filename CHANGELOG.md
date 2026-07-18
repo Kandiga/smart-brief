@@ -65,6 +65,16 @@ APPLE_TEAM_ID env vars).
 
 **Fixes**
 
+- **Captures no longer come out as a picture of an empty desktop.** macOS reports Screen
+  Recording as "granted" from a stale permission entry — which an unsigned rebuild triggers
+  every time, because such a build is identified by its own binary hash — while actually
+  withholding every other app's pixels. The result was a capture of just the wallpaper, menu
+  bar and Dock, with no warning. Smart Brief now probes whether the permission really works
+  (other apps' window titles need the same access as their pixels) and shows a specific
+  explainer instead of capturing nothing useful. `npm run package:dev-signed` gives the app
+  a stable identity so the permission stops being lost in the first place; that build now
+  ships entitlements disabling library validation, without which a self-signed Apple Silicon
+  build cannot load its own Electron framework.
 - **Captures are now pixel-perfect.** The saved screenshot was previously cropped from the
   `desktopCapturer` frame, which macOS renders as a scaled-down *preview* — the result came
   out visibly soft, roughly half resolution on Retina. The actual grab now goes through
@@ -78,7 +88,7 @@ APPLE_TEAM_ID env vars).
 - Discarding a never-saved capture no longer leaves its screenshot behind in `media/`
   (flush-before-delete so media GC always sees the references).
 
-Tests: 70 unit tests (was 35) and 11 e2e tests (was 8), including capture ZIP content
+Tests: 75 unit tests (was 35) and 11 e2e tests (was 8), including capture ZIP content
 verification, ghost-project and stale-autosave regression coverage for captures.
 
 ## 1.0.2 — 2026-07-18

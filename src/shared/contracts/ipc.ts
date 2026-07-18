@@ -89,6 +89,15 @@ export interface CaptureGrabResult {
   height: number
 }
 
+/**
+ * Why a capture could not start. `stale` means macOS reports the permission as
+ * granted but is not actually handing over other apps' pixels — typically after
+ * an unsigned rebuild changed the app's identity.
+ */
+export interface CapturePermissionPayload {
+  kind: 'missing' | 'stale'
+}
+
 /** Told to the main window when an in-overlay capture is finished. */
 export interface CaptureOpenProjectPayload {
   projectId: string
@@ -172,6 +181,6 @@ export interface SmartBriefApi {
   onRequestFlush(cb: () => void): () => void
   onSettingsChanged(cb: (settings: AppSettings) => void): () => void
   onCaptureOpenProject(cb: (payload: CaptureOpenProjectPayload) => void): () => void
-  onCapturePermissionRequired(cb: () => void): () => void
+  onCapturePermissionRequired(cb: (payload: CapturePermissionPayload) => void): () => void
   onCaptureShortcutStatus(cb: (status: CaptureShortcutStatus) => void): () => void
 }

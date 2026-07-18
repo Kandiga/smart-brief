@@ -109,9 +109,24 @@ The build is unsigned, so on first launch right-click the app → **Open** to ge
 Gatekeeper. macOS will ask for **Screen Recording** permission the first time you use Quick
 Capture (System Settings → Privacy & Security); the app explains this and links you there.
 
-If you rebuild often, a free self-signed certificate gives the app a stable identity so the
-permission sticks — see the build notes below. You do **not** need a paid Apple Developer
-account to use this on your own machine.
+**If you plan to rebuild, sign it once — for free.** An unsigned build is identified by the
+hash of its own binary, so every rebuild looks like a different app to macOS and silently
+loses its Screen Recording permission. Worse, macOS keeps reporting the permission as
+granted while handing over only your wallpaper, the menu bar and the Dock, so captures come
+out showing an empty desktop. (Smart Brief detects that state and explains it rather than
+capturing something useless.)
+
+A free self-signed certificate makes the identity `bundle id + certificate` instead of a
+file hash, so the permission survives rebuilds:
+
+1. **Keychain Access** → menu **Keychain Access → Certificate Assistant → Create a
+   Certificate…** · Name: `Smart Brief Dev` · Identity Type: **Self-Signed Root** ·
+   Certificate Type: **Code Signing** → Create.
+2. `npm run package:dev-signed`
+
+You do **not** need a paid Apple Developer account for any of this. (On Apple Silicon a
+self-signed certificate has no Team ID, so that build disables library validation via
+`build/entitlements.dev.plist` — otherwise the app cannot load its own Electron framework.)
 
 ## Development
 

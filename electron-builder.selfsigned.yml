@@ -4,12 +4,28 @@
 # gives it a STABLE identity: the Screen Recording permission then survives
 # rebuilds (unsigned builds lose it every time the binary changes).
 #
+# Why this matters: an unsigned (ad-hoc) build's identity is the hash of its own
+# binary, so every rebuild looks like a brand new app to macOS and silently
+# loses its Screen Recording permission. Signing with a stable certificate makes
+# the identity `identifier + certificate`, which survives rebuilds.
+#
 # One-time setup (2 minutes, free):
 #   1. Open "Keychain Access" → menu: Keychain Access → Certificate Assistant
 #      → Create a Certificate…
 #   2. Name: Smart Brief Dev   |   Identity Type: Self-Signed Root
 #      Certificate Type: Code Signing   → Create.
 #   3. Build with: npm run package:dev-signed
+#
+# Or from the command line:
+#   openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+#     -keyout sb.key -out sb.crt -subj "/CN=Smart Brief Dev" \
+#     -addext "basicConstraints=critical,CA:false" \
+#     -addext "keyUsage=critical,digitalSignature" \
+#     -addext "extendedKeyUsage=critical,codeSigning"
+#   openssl pkcs12 -export -inkey sb.key -in sb.crt -out sb.p12 \
+#     -name "Smart Brief Dev" -passout pass:sbdev \
+#     -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1
+#   security import sb.p12 -k ~/Library/Keychains/login.keychain-db -P sbdev -A
 #
 # This is for YOUR Mac only — other people's Macs won't trust it (that's what
 # the paid Developer ID in electron-builder.signed.yml is for).
@@ -25,6 +41,10 @@ mac:
   icon: build/icon.icns
   identity: Smart Brief Dev
   type: development
+  # A self-signed cert has no Team ID, so library validation has to be switched
+  # off or the app cannot load its own Electron Framework on Apple Silicon.
+  entitlements: build/entitlements.dev.plist
+  entitlementsInherit: build/entitlements.dev.plist
   target:
     - target: dir
       arch:

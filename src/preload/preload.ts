@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/contracts/ipc'
 import type {
   CaptureOpenProjectPayload,
+  CapturePermissionPayload,
   CaptureShortcutStatus,
   MenuAction,
   SmartBriefApi
@@ -63,7 +64,7 @@ const api: SmartBriefApi = {
   },
   onSettingsChanged: subscribe<AppSettings>(IPC.settingsChanged),
   onCaptureOpenProject: subscribe<CaptureOpenProjectPayload>(IPC.captureOpenProject),
-  onCapturePermissionRequired: subscribe<void>(IPC.capturePermissionRequired),
+  onCapturePermissionRequired: subscribe<CapturePermissionPayload>(IPC.capturePermissionRequired),
   onCaptureShortcutStatus: subscribe<CaptureShortcutStatus>(IPC.captureShortcutStatus)
 }
 

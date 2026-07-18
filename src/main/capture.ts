@@ -144,6 +144,31 @@ export class CaptureController {
     }
   }
 
+  /**
+   * `getMediaAccessStatus` is not trustworthy on its own: a stale TCC entry (for
+   * example after an unsigned rebuild changes the app's identity) keeps saying
+   * "granted" while macOS quietly strips every other app's content out of the
+   * capture — you get the wallpaper, the menu bar and the Dock, and nothing else.
+   *
+   * Reading other apps' window titles requires the same permission as capturing
+   * their pixels, so it is a reliable probe: if windows belonging to other apps
+   * exist but none of them will tell us their title, the permission is not
+   * actually working. With no other windows open we cannot tell, and say so.
+   */
+  private async screenAccessLooksReal(): Promise<boolean | 'unknown'> {
+    try {
+      const windows = await desktopCapturer.getSources({
+        types: ['window'],
+        thumbnailSize: { width: 1, height: 1 }
+      })
+      const others = windows.filter((w) => !/^Smart Brief/i.test(w.name ?? ''))
+      if (others.length === 0) return 'unknown'
+      return others.some((w) => (w.name ?? '').trim().length > 0)
+    } catch {
+      return false
+    }
+  }
+
   async openScreenRecordingSettings(): Promise<void> {
     await shell
       .openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
@@ -161,6 +186,11 @@ export class CaptureController {
 
       if (!this.fake) {
         const status = this.permissionStatus()
+        // Catch the "says granted but captures nothing" case before the user
+        // spends time annotating a picture of their own wallpaper.
+        if (status === 'granted' && (await this.screenAccessLooksReal()) === false) {
+          return this.reportPermissionProblem('stale')
+        }
         if (status !== 'granted') {
           // Attempting a capture registers the app in the macOS Screen Recording
           // list (and triggers the system prompt on first use), so the user can
@@ -283,12 +313,14 @@ export class CaptureController {
     return overlay
   }
 
-  private async reportPermissionProblem(): Promise<CaptureStartResult> {
+  private async reportPermissionProblem(
+    kind: 'missing' | 'stale' = 'missing'
+  ): Promise<CaptureStartResult> {
     this.pending = 'permission'
     const win = await this.deps.ensureMainWindow()
     win.show()
     win.focus()
-    win.webContents.send(IPC.capturePermissionRequired)
+    win.webContents.send(IPC.capturePermissionRequired, { kind })
     return { ok: false, reason: 'permission' }
   }
 

@@ -273,7 +273,14 @@ from array order on every mutation and undo/redo.
 - **Menu-bar mode** (default on): tray item (code-drawn template icon) with Open Smart
   Brief / Quick Capture (+shortcut) / Library / Quit; `window-all-closed` keeps the app
   alive so the shortcut still works; disable in Settings to restore quit-on-close.
-- **Screen Recording permission**: status via `systemPreferences.getMediaAccessStatus`;
+- **Screen Recording permission**: status via `systemPreferences.getMediaAccessStatus`,
+  **plus a liveness probe** — that API keeps reporting "granted" from a stale TCC entry (for
+  example after an unsigned rebuild changes the app's identity) while macOS strips every
+  other app's content out of the capture, yielding a picture of just the wallpaper, menu bar
+  and Dock. Reading other apps' window titles needs the same permission as capturing their
+  pixels, so if other apps' windows exist but none will report a title, the capture is
+  refused with a specific "Screen Recording stopped working" explainer instead of producing
+  an empty desktop shot. Base behaviour:
   when missing, a capture attempt registers the app in the macOS list, and an in-app
   explainer offers "Open System Settings" (deep link to Privacy → Screen Recording),
   notes the possible restart, and rechecks on window focus. No other permissions are

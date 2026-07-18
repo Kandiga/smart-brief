@@ -33,6 +33,7 @@ export default function App() {
   const shortcutNotice = useUiStore((s) => s.shortcutNotice)
   const setShortcutNotice = useUiStore((s) => s.setShortcutNotice)
   const [permissionStatus, setPermissionStatus] = useState<string>('unknown')
+  const [permissionKind, setPermissionKind] = useState<'missing' | 'stale'>('missing')
 
   // Boot: restore the last active project (or newest, or a fresh draft).
   useEffect(() => {
@@ -53,7 +54,8 @@ export default function App() {
     const offOpen = window.smartBrief.onCaptureOpenProject((payload) => {
       void openCapturedProject(payload.projectId)
     })
-    const offPermission = window.smartBrief.onCapturePermissionRequired(() => {
+    const offPermission = window.smartBrief.onCapturePermissionRequired((payload) => {
+      setPermissionKind(payload?.kind ?? 'missing')
       void checkPendingCapture()
     })
     const offShortcut = window.smartBrief.onCaptureShortcutStatus((status) => {
@@ -269,16 +271,37 @@ export default function App() {
       {permissionHelpOpen && (
         <div className="modal-backdrop" role="dialog" aria-label="Screen Recording permission">
           <div className="modal" data-testid="permission-help">
-            <h3>Screen Recording permission needed</h3>
-            <p className="settings-line">
-              Quick Capture takes a picture of your screen, which macOS only allows after you
-              enable <strong>Screen Recording</strong> for Smart Brief in System Settings →
-              Privacy &amp; Security.
-            </p>
-            <p className="settings-line">
-              After enabling it, macOS may require quitting and reopening Smart Brief before
-              captures work.
-            </p>
+            <h3>
+              {permissionKind === 'stale'
+                ? 'Screen Recording stopped working'
+                : 'Screen Recording permission needed'}
+            </h3>
+            {permissionKind === 'stale' ? (
+              <>
+                <p className="settings-line">
+                  macOS still lists Smart Brief as allowed, but it is no longer handing over
+                  other apps' windows — a capture right now would show only your wallpaper,
+                  the menu bar and the Dock.
+                </p>
+                <p className="settings-line">
+                  This happens when the app is replaced by a new build. Open System Settings →
+                  Privacy &amp; Security → <strong>Screen Recording</strong>, switch Smart
+                  Brief <strong>off and then on again</strong>, and reopen the app.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="settings-line">
+                  Quick Capture takes a picture of your screen, which macOS only allows after
+                  you enable <strong>Screen Recording</strong> for Smart Brief in System
+                  Settings → Privacy &amp; Security.
+                </p>
+                <p className="settings-line">
+                  After enabling it, macOS may require quitting and reopening Smart Brief
+                  before captures work.
+                </p>
+              </>
+            )}
             {permissionStatus === 'granted' && (
               <p className="settings-line success">
                 Permission looks granted now — try the capture shortcut again.
