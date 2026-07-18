@@ -1,0 +1,21 @@
+appId: com.smartbrief.desktop
+productName: Smart Brief
+directories:
+  output: release
+files:
+  - dist/**
+  - package.json
+mac:
+  category: public.app-category.productivity
+  identity: null
+  icon: build/icon.icns
+  target:
+    - target: dir
+      arch:
+        - arm64
+    - target: dmg
+      arch:
+        - arm64
+dmg:
+  title: Smart Brief
+npmRebuild: false

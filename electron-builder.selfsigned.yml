@@ -1,0 +1,37 @@
+# FREE local signing — no Apple Developer account needed.
+#
+# Signs the app with a self-signed certificate from your own Keychain so macOS
+# gives it a STABLE identity: the Screen Recording permission then survives
+# rebuilds (unsigned builds lose it every time the binary changes).
+#
+# One-time setup (2 minutes, free):
+#   1. Open "Keychain Access" → menu: Keychain Access → Certificate Assistant
+#      → Create a Certificate…
+#   2. Name: Smart Brief Dev   |   Identity Type: Self-Signed Root
+#      Certificate Type: Code Signing   → Create.
+#   3. Build with: npm run package:dev-signed
+#
+# This is for YOUR Mac only — other people's Macs won't trust it (that's what
+# the paid Developer ID in electron-builder.signed.yml is for).
+appId: com.smartbrief.desktop
+productName: Smart Brief
+directories:
+  output: release
+files:
+  - dist/**
+  - package.json
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  identity: Smart Brief Dev
+  type: development
+  target:
+    - target: dir
+      arch:
+        - arm64
+    - target: dmg
+      arch:
+        - arm64
+dmg:
+  title: Smart Brief
+npmRebuild: false

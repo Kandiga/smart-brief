@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+test-results/
+build/icon.iconset/
+
+# Test output and personal briefs. These are pictures of a real desktop, so they
+# stay local — never in a public repository.
+screenshots/
+*.jpg
