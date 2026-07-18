@@ -190,7 +190,8 @@ app.whenReady().then(async () => {
   // (unlike `getMediaAccessStatus`, which lies about screen capture).
   if (process.env.SMART_BRIEF_CAPTURE_DIAGNOSTIC) {
     const probe = await capture.probeScreenAccess()
-    const report = `SMART_BRIEF_DIAGNOSTIC ${JSON.stringify(probe)}`
+    const shot = await capture.diagnosticFullScreenGrab()
+    const report = `SMART_BRIEF_DIAGNOSTIC ${JSON.stringify({ ...probe, fullScreenGrab: shot })}`
     process.stdout.write(`${report}\n`)
     // Also to a file: launched via `open` the app has no usable stdout, and
     // that is the only way to observe it under its own identity (a binary run

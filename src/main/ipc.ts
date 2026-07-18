@@ -195,7 +195,11 @@ export function registerIpc(repo: ProjectRepository, hooks: IpcHooks) {
   // --- Quick Capture ---------------------------------------------------------
 
   ipcMain.handle(IPC.captureStart, () => hooks.capture.start())
-  ipcMain.handle(IPC.capturePermissionStatus, () => hooks.capture.permissionStatus())
+  // Deliberately NOT getMediaAccessStatus: that reports "granted" while macOS
+  // withholds every other app's pixels. Only a real capture settles it.
+  ipcMain.handle(IPC.capturePermissionStatus, async () =>
+    (await hooks.capture.recheckScreenAccess()) ? 'granted' : 'denied'
+  )
   ipcMain.handle(IPC.captureOpenScreenSettings, () => hooks.capture.openScreenRecordingSettings())
   ipcMain.handle(IPC.captureTakePending, () => hooks.capture.takePending())
 

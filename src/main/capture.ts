@@ -211,6 +211,12 @@ export class CaptureController {
     }
   }
 
+  /** Re-test from scratch (used when the user returns from System Settings). */
+  async recheckScreenAccess(): Promise<boolean> {
+    this.accessVerified = false
+    return this.screenAccessLooksReal()
+  }
+
   /**
    * What the app can actually see. Without Screen Recording permission macOS
    * hides other applications' windows from `desktopCapturer` entirely (and
@@ -485,6 +491,29 @@ export class CaptureController {
     if (size.width < 1 || size.height < 1) return null
     const file = await this.deps.saveMedia(png, 'capture.png')
     return { file, width: size.width, height: size.height }
+  }
+
+  /**
+   * Support diagnostic: grab the whole primary display to a file so the actual
+   * capture can be looked at. The only way to tell "permission works" from
+   * "macOS is quietly handing back a picture of the wallpaper".
+   */
+  async diagnosticFullScreenGrab(): Promise<string | null> {
+    const display = screen.getPrimaryDisplay()
+    const png = await grabRegionAtNativeResolution({
+      x: display.bounds.x,
+      y: display.bounds.y,
+      width: display.bounds.width,
+      height: display.bounds.height
+    })
+    if (!png) return null
+    const target = path.join(os.tmpdir(), 'smart-brief-diagnostic-screen.png')
+    try {
+      fs.writeFileSync(target, png)
+      return target
+    } catch {
+      return null
+    }
   }
 
   /** The user pressed Done: hand the finished project to the main window. */
