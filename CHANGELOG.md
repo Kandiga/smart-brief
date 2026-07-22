@@ -69,9 +69,7 @@ APPLE_TEAM_ID env vars).
   Recording as "granted" from a stale permission entry — which an unsigned rebuild triggers
   every time, because such a build is identified by its own binary hash — while actually
   withholding every other app's pixels. The result was a capture of just the wallpaper, menu
-  bar and Dock, with no warning. Smart Brief now probes whether the permission really works
-  (other apps' window titles need the same access as their pixels) and shows a specific
-  explainer instead of capturing nothing useful. `npm run package:dev-signed` gives the app
+  bar and Dock, with no warning. `npm run package:dev-signed` gives the app
   a stable identity so the permission stops being lost in the first place; that build now
   ships entitlements disabling library validation, without which a self-signed Apple Silicon
   build cannot load its own Electron framework.

@@ -98,23 +98,28 @@ timing; contributions welcome if you want one sooner.
 
 ## Install
 
-Download the DMG from [Releases](../../releases), or build it yourself:
+There is no prebuilt download yet — you build it yourself, which takes about a minute:
 
 ```bash
+git clone https://github.com/Kandiga/smart-brief.git
+cd smart-brief
 npm install
 npm run package        # → release/mac-arm64/Smart Brief.app + a DMG
 ```
 
-The build is unsigned, so on first launch right-click the app → **Open** to get past
-Gatekeeper. macOS will ask for **Screen Recording** permission the first time you use Quick
-Capture (System Settings → Privacy & Security); the app explains this and links you there.
+Then drag `Smart Brief.app` into `/Applications`. The build is unsigned, so on **first
+launch right-click the app → Open** (double-clicking will just be refused by Gatekeeper).
+
+macOS will ask for **Screen Recording** permission the first time you use Quick Capture:
+System Settings → Privacy & Security → Screen Recording → enable **Smart Brief**, then quit
+and reopen the app. Nothing else needs configuring.
 
 **If you plan to rebuild, sign it once — for free.** An unsigned build is identified by the
 hash of its own binary, so every rebuild looks like a different app to macOS and silently
 loses its Screen Recording permission. Worse, macOS keeps reporting the permission as
-granted while handing over only your wallpaper, the menu bar and the Dock, so captures come
-out showing an empty desktop. (Smart Brief detects that state and explains it rather than
-capturing something useless.)
+granted while handing over only your wallpaper, the menu bar and the Dock — so a capture can
+come out showing an empty desktop with no warning. If that happens, re-grant the permission
+and relaunch; signing stops it from recurring.
 
 A free self-signed certificate makes the identity `bundle id + certificate` instead of a
 file hash, so the permission survives rebuilds:
