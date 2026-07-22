@@ -8,3 +8,6 @@ build/icon.iconset/
 # stay local — never in a public repository.
 screenshots/
 *.jpg
+
+# Promo-video workspace (HyperFrames project + renders); not part of the app.
+videos/
